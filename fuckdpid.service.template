@@ -1,0 +1,14 @@
+[Unit]
+Description=FuckDPI — личный VLESS-Reality туннель (sing-box)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=__SINGBOX__ run -c __CONFIG__
+Restart=on-failure
+RestartSec=3s
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

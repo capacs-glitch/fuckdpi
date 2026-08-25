@@ -1,0 +1,47 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g. v1.0.0)'
+        required: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.version || github.ref_name }}
+          name: "FuckDPI ${{ github.event.inputs.version || github.ref_name }}"
+          body: |
+            ## Установка
+
+            ### Linux
+            ```bash
+            curl -sSL https://raw.githubusercontent.com/capacs-glitch/fuckdpi/main/install.sh | bash
+            ```
+
+            ### Windows 11
+            ```powershell
+            irm https://raw.githubusercontent.com/capacs-glitch/fuckdpi/main/install.ps1 | iex
+            ```
+          files: |
+            fuckdpi.py
+            fuckdpi-windows.py
+            install.sh
+            install.ps1
+            fuckdpid.service.template
+            start_fuckdpi.sh
+            stop_fuckdpi.sh
+            README.md
+            LICENSE
+          generate_release_notes: true

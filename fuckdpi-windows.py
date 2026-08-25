@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 fuckdpi-windows — Windows 11: менеджер VPN (VLESS-Reality)
-                  + FuckDPI (winws/zapret — обход DPI без VPN).
+                  + FuckDPI (winws — обход DPI без VPN).
 Зависимости: Python 3.10+ с pip install windows-curses
 """
 
@@ -101,7 +101,7 @@ def winws_bin() -> str:
     local = CFG_DIR / "winws.exe"
     if local.exists():
         return str(local)
-    for p in [r"C:\zapret\winws.exe", "winws.exe"]:
+    for p in [r"C:\fuckdpi\winws.exe", "winws.exe"]:
         if os.path.exists(p):
             return p
     return "winws.exe"
@@ -319,8 +319,7 @@ def fuckdpi_start(mode: str, log=lambda m: None) -> bool:
     w = winws_bin()
     if not os.path.exists(w):
         log(f"winws.exe не найден: {w}")
-        log("скачай zapret-win-bundle: "
-            "https://github.com/bol-van/zapret-win-bundle")
+        log("скачай winws: https://github.com/bol-van/zapret-win-bundle")
         return False
 
     hostlist = load_hostlist() if mode == "select" else []

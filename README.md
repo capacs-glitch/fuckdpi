@@ -46,12 +46,12 @@ fuckdpi status              # статус
 ### Linux
 - Python 3.10+
 - sing-box
-- zapret (nfqws) — для FuckDPI
+- nfqws — для FuckDPI
 
 ### Windows 11
 - Python 3.10+ с `pip install windows-curses`
 - sing-box (winget install SagerNet.sing-box)
-- zapret-win-bundle (winws.exe) — для FuckDPI
+- winws.exe — для FuckDPI
 
 ## Лицензия
 

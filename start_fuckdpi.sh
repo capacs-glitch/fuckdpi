@@ -1,5 +1,5 @@
 #!/bin/bash
-# start_fuckdpi.sh — запуск nfqws (zapret) для обхода DPI.
+# start_fuckdpi.sh — запуск nfqws для обхода DPI.
 # Аргумент: "select" (только список доменов) или "all" (весь трафик).
 # Запуск: sudo bash start_fuckdpi.sh select
 set -euo pipefail
@@ -12,11 +12,11 @@ QUEUE_NUM=200
 FWMARK=0x40000000
 
 NFQWS=""
-for p in /opt/zapret/nfq/nfqws /usr/local/bin/nfqws /usr/bin/nfqws; do
+  for p in /opt/fuckdpi/nfq/nfqws /usr/local/bin/nfqws /usr/bin/nfqws; do
   if [[ -x "$p" ]]; then NFQWS="$p"; break; fi
 done
 if [[ -z "$NFQWS" ]]; then
-  echo "nfqws не найден. Установи zapret: /opt/zapret"
+  echo "nfqws не найден. Установи: fuckdpi"
   exit 1
 fi
 

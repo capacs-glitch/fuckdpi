@@ -90,8 +90,8 @@ REPO
 fi
 echo "  sing-box: $(command -v sing-box || echo 'не найден')"
 
-echo "[5/6] ставлю zapret (nfqws)..."
-ZAPRET_DIR="/opt/zapret"
+echo "[5/6] ставлю fuckdpi (nfqws)..."
+ZAPRET_DIR="/opt/fuckdpi"
 if [[ ! -x "$ZAPRET_DIR/nfq/nfqws" ]]; then
   case "$DISTRO" in
     arch)
@@ -111,7 +111,7 @@ if [[ ! -x "$ZAPRET_DIR/nfq/nfqws" ]]; then
     sudo bash "$ZAPRET_DIR/install_prereq.sh" 2>/dev/null || true
   fi
 else
-  echo "  zapret уже установлен"
+  echo "  fuckdpi (nfqws) уже установлен"
 fi
 
 echo "[6/6] настраиваю PATH..."

@@ -39,29 +39,29 @@ if (-not $singBox) {
     Write-Host "  sing-box: $($singBox.Source)"
 }
 
-# 5. zapret-win-bundle (winws)
-Write-Host "[5/6] проверяю winws (zapret)..."
+# 5. winws (nfqws)
+Write-Host "[5/6] проверяю winws (nfqws)..."
 $winwsPath = "$InstallDir\winws.exe"
 if (-not (Test-Path $winwsPath)) {
-    Write-Host "  скачиваю zapret-win-bundle..."
+    Write-Host "  скачиваю winws..."
     $zapretUrl = "https://github.com/bol-van/zapret-win-bundle/releases/latest/download/zapret-win-bundle.zip"
-    $zipPath = "$env:TEMP\zapret-win-bundle.zip"
+    $zipPath = "$env:TEMP\winws.zip"
     try {
         [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
         Invoke-WebRequest -Uri $zapretUrl -OutFile $zipPath -TimeoutSec 120
-        Expand-Archive -Path $zipPath -DestinationPath "$env:TEMP\zapret" -Force
-        $winws = Get-ChildItem -Path "$env:TEMP\zapret" -Recurse -Filter "winws.exe" | Select-Object -First 1
+        Expand-Archive -Path $zipPath -DestinationPath "$env:TEMP\winws" -Force
+        $winws = Get-ChildItem -Path "$env:TEMP\winws" -Recurse -Filter "winws.exe" | Select-Object -First 1
         if ($winws) {
             Copy-Item $winws.FullName -Destination $winwsPath -Force
             # Копируем WinDivert
-            $windivert = Get-ChildItem -Path "$env:TEMP\zapret" -Recurse -Filter "windivert*.sys" | Select-Object -First 1
+            $windivert = Get-ChildItem -Path "$env:TEMP\winws" -Recurse -Filter "windivert*.sys" | Select-Object -First 1
             if ($windivert) {
                 Copy-Item $windivert.DirectoryName -Destination "$InstallDir\windivert" -Recurse -Force
             }
             Write-Host "  winws установлен" -ForegroundColor Green
         }
     } catch {
-        Write-Host "  ошибка скачивания zapret: $_" -ForegroundColor Yellow
+        Write-Host "  ошибка скачивания: $_" -ForegroundColor Yellow
         Write-Host "  скачай вручную: https://github.com/bol-van/zapret-win-bundle"
     }
 } else {

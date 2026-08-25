@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 fuckdpi — Linux: терминальный менеджер VPN (VLESS-Reality)
-          + FuckDPI (nfqws/zapret — обход DPI без VPN).
+          + FuckDPI (nfqws — обход DPI без VPN).
 Зависимости: только Python stdlib.
 """
 

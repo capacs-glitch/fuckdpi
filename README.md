@@ -6,7 +6,7 @@
 
 ### Linux
 ```bash
-curl -sSL https://raw.githubusercontent.com/capacs-glitch/fuckdpi/main/install.sh | bash
+bash <(curl -sSL https://raw.githubusercontent.com/capacs-glitch/fuckdpi/main/install.sh)
 ```
 
 ### Windows 11

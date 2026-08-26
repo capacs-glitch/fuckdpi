@@ -54,6 +54,7 @@ HELP_LINES = [
     ("/stop",             "отключить VPN / FuckDPI"),
     ("/restart",          "перезапустить туннель"),
     ("/status",           "состояние: сервис, интерфейс, внешний IP"),
+    ("/install-service",  "установить sing-box как Windows-сервис"),
     ("/list",             "редактор списка доменов (nano-подобный)"),
     ("/use <№|слово>",    "выбрать сервер по номеру или названию"),
     ("/ping",             "замер задержки всех серверов"),
@@ -259,6 +260,14 @@ def service_active() -> bool:
     return "RUNNING" in (r.stdout or "")
 
 
+def service_exists() -> bool:
+    r = run(["sc", "query", SERVICE_NAME], timeout=5)
+    return "SERVICE_NAME" in (r.stdout or "") or \
+           "DISPLAY_NAME" in (r.stdout or "") or \
+           "RUNNING" in (r.stdout or "") or \
+           "STOPPED" in (r.stdout or "")
+
+
 def tun_exists() -> bool:
     r = run(["netsh", "interface", "show", "interface"], timeout=5)
     return TUN_IFACE.lower() in (r.stdout or "").lower()
@@ -291,6 +300,24 @@ def service_control(action: str) -> int:
         r = run(["sc", "start", SERVICE_NAME], timeout=15)
         return r.returncode
     return 1
+
+
+def install_service(log=lambda m: None) -> bool:
+    sb = sb_bin()
+    cfg = str(CONFIG_FILE)
+    if not os.path.exists(sb):
+        log(f"sing-box не найден: {sb}")
+        return False
+    r = run(["sc", "create", SERVICE_NAME,
+             "binPath=", f'"{sb}" run -c "{cfg}"',
+             "start=", "auto",
+             "DisplayName=", "FuckDPI VPN"], timeout=10)
+    if r.returncode != 0:
+        err = (r.stderr or r.stdout or "").strip()
+        log(f"ошибка установки сервиса: {err[:300]}")
+        return False
+    log(f"сервис установлен: {SERVICE_NAME}")
+    return True
 
 
 def service_install():
@@ -572,12 +599,18 @@ class Engine:
         if fuckdpi_running():
             self.say("FuckDPI активен; /stop перед запуском VPN")
             return
+        if not service_exists():
+            self.say("устанавливаю сервис...")
+            if not install_service(self.say):
+                self.say("не удалось установить сервис; выполни вручную:")
+                self.say("  /install-service")
+                return
         servers, idx = self._selected()
         if servers:
             gen_config(servers[idx], servers, self.say, mode=bypass)
         rc = service_control("start")
         if rc != 0:
-            self.say(f"sc start вернул код {rc}")
+            self.say(f"sc start вернул код {rc}; /log")
             return
         ok = False
         for _ in range(15):
@@ -626,9 +659,14 @@ class Engine:
         if fuckdpi_running():
             self.say("FuckDPI активен; /stop перед перезапуском VPN")
             return
+        if not service_exists():
+            self.say("устанавливаю сервис...")
+            if not install_service(self.say):
+                self.say("не удалось установить сервис")
+                return
         rc = service_control("restart")
         if rc != 0:
-            self.say(f"restart вернул код {rc}")
+            self.say(f"restart вернул код {rc}; /log")
             return
         for _ in range(15):
             if tun_exists():
@@ -843,6 +881,19 @@ class UI:
             if base.startswith(tok) or (tok == "/" and base != "/quit"):
                 res.append((base, d))
         return res[:self.POPUP_MAX]
+
+    # ---------------- admin ----------------
+
+    def _ensure_admin(self):
+        if is_admin():
+            return True
+        self.post("требуются права администратора; перезапуск с UAC...", 3)
+        try:
+            curses.endwin()
+        except curses.error:
+            pass
+        elevate_and_rerun()
+        return False
 
     # ---------------- editor ----------------
 
@@ -1268,17 +1319,20 @@ class UI:
                 self.pending_key = True
                 self.post("вставь ссылку следующей строкой:", 3)
         elif cmd == "/start":
-            st = load_json(STATE_FILE, {})
-            bypass = st.get("bypass", "all")
-            self.post(f"поднимаю VPN ({bypass})...", 7)
-            threading.Thread(target=self.engine.start,
-                             args=(bypass,), daemon=True).start()
+            if self._ensure_admin():
+                st = load_json(STATE_FILE, {})
+                bypass = st.get("bypass", "all")
+                self.post(f"поднимаю VPN ({bypass})...", 7)
+                threading.Thread(target=self.engine.start,
+                                 args=(bypass,), daemon=True).start()
         elif cmd == "/stop":
-            threading.Thread(target=self.engine.stop,
-                             daemon=True).start()
+            if self._ensure_admin():
+                threading.Thread(target=self.engine.stop,
+                                 daemon=True).start()
         elif cmd == "/restart":
-            threading.Thread(target=self.engine.restart,
-                             daemon=True).start()
+            if self._ensure_admin():
+                threading.Thread(target=self.engine.restart,
+                                 daemon=True).start()
         elif cmd == "/status":
             threading.Thread(target=lambda: [
                 self.post(l) for l in self.engine.status_lines()],
@@ -1307,17 +1361,24 @@ class UI:
         elif cmd == "/log":
             for l in self.engine.logs():
                 self.post("| " + l, 7)
+        elif cmd == "/install-service":
+            if self._ensure_admin():
+                threading.Thread(
+                    target=lambda: install_service(self.post),
+                    daemon=True).start()
         elif cmd == "/vpn":
             if arg in ("select", "all"):
-                self.post(f"поднимаю VPN ({arg})...", 7)
-                threading.Thread(target=self.engine.start,
-                                 args=(arg,), daemon=True).start()
+                if self._ensure_admin():
+                    self.post(f"поднимаю VPN ({arg})...", 7)
+                    threading.Thread(target=self.engine.start,
+                                     args=(arg,), daemon=True).start()
             else:
                 self.post("использование: /vpn select | /vpn all")
         elif cmd == "/fuckdpi":
             if arg in ("select", "all"):
-                threading.Thread(target=self.engine.cmd_fuckdpi,
-                                 args=(arg,), daemon=True).start()
+                if self._ensure_admin():
+                    threading.Thread(target=self.engine.cmd_fuckdpi,
+                                     args=(arg,), daemon=True).start()
             else:
                 self.post("использование: /fuckdpi select | /fuckdpi all")
         else:
@@ -1336,6 +1397,8 @@ def cli_main(args):
         print("\nБез аргументов: интерактивный интерфейс.")
     elif cmd == "key":
         eng.cmd_key(args[1] if len(args) > 1 else "")
+    elif cmd == "install-service":
+        install_service(print)
     elif cmd == "start":
         eng.start()
     elif cmd == "stop":

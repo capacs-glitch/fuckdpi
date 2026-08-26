@@ -12,7 +12,7 @@ QUEUE_NUM=200
 FWMARK=0x40000000
 
 NFQWS=""
-  for p in /opt/fuckdpi/nfq/nfqws /usr/local/bin/nfqws /usr/bin/nfqws; do
+  for p in /opt/zapret/nfq/nfqws /opt/fuckdpi/nfq/nfqws /usr/local/bin/nfqws /usr/bin/nfqws; do
   if [[ -x "$p" ]]; then NFQWS="$p"; break; fi
 done
 if [[ -z "$NFQWS" ]]; then

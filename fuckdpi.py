@@ -32,6 +32,7 @@ CONFIG_FILE = CFG_DIR / "config.json"
 HOSTLIST_FILE = CFG_DIR / "hostlist.txt"
 
 SERVICE = "fuckdpid.service"
+SERVICE_FILE = Path("/etc/systemd/system") / SERVICE
 SB_CANDIDATES = ["/usr/bin/sing-box", "/usr/local/bin/sing-box"]
 UA_BROWSER = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
               "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
@@ -59,6 +60,7 @@ HELP_LINES = [
     ("/stop",             "отключить VPN / FuckDPI"),
     ("/restart",          "перезапустить туннель"),
     ("/status",           "состояние: сервис, интерфейс, внешний IP"),
+    ("/install-service",  "установить systemd-сервис из шаблона"),
     ("/list",             "редактор списка доменов (nano-подобный)"),
     ("/use <№|слово>",    "выбрать сервер по номеру или названию"),
     ("/ping",             "замер задержки всех серверов"),
@@ -247,6 +249,39 @@ def service_active() -> bool:
                timeout=5).returncode == 0
 
 
+def service_exists() -> bool:
+    return SERVICE_FILE.exists()
+
+
+def install_service(log=lambda m: None) -> bool:
+    template = Path.home() / "fuckdpi" / "fuckdpid.service.template"
+    if not template.exists():
+        log(f"шаблон сервиса не найден: {template}")
+        return False
+    content = template.read_text(encoding="utf-8")
+    content = content.replace("__SINGBOX__", sb_bin())
+    content = content.replace("__CONFIG__", str(CONFIG_FILE))
+    tmp = Path("/tmp/fuckdpid.service.tmp")
+    try:
+        tmp.write_text(content, encoding="utf-8")
+        r = subprocess.run(["sudo", "mv", str(tmp), str(SERVICE_FILE)],
+                           capture_output=True, text=True, timeout=10)
+        if r.returncode != 0:
+            log(f"не удалось записать {SERVICE_FILE}: "
+                f"{(r.stderr or '').strip()}")
+            return False
+        r = subprocess.run(["sudo", "systemctl", "daemon-reload"],
+                           capture_output=True, text=True, timeout=10)
+        if r.returncode != 0:
+            log(f"daemon-reload: {(r.stderr or '').strip()}")
+            return False
+        log(f"сервис установлен: {SERVICE_FILE}")
+        return True
+    except Exception as e:
+        log(f"ошибка установки сервиса: {e}")
+        return False
+
+
 def tun_exists() -> bool:
     return run(["ip", "link", "show", TUN_IFACE], timeout=5).returncode == 0
 
@@ -265,7 +300,9 @@ def exit_ip(timeout=6):
 
 
 def systemctl_sudo(action):
-    return subprocess.run(["sudo", "systemctl", action, SERVICE]).returncode
+    r = subprocess.run(["sudo", "systemctl", action, SERVICE],
+                       capture_output=True, text=True, timeout=30)
+    return r.returncode
 
 
 def fuckdpi_running() -> bool:
@@ -516,12 +553,18 @@ class Engine:
         if fuckdpi_running():
             self.say("FuckDPI активен; /stop перед запуском VPN")
             return
+        if not service_exists():
+            self.say("устанавливаю сервис...")
+            if not install_service(self.say):
+                self.say("не удалось установить сервис; выполни вручную:")
+                self.say(f"  fuckdpi install-service")
+                return
         servers, idx = self._selected()
         if servers:
             gen_config(servers[idx], servers, self.say, mode=bypass)
         rc = systemctl_sudo("start")
         if rc != 0:
-            self.say(f"systemctl start вернул код {rc}")
+            self.say(f"systemctl start вернул код {rc}; /log")
             return
         ok = False
         for _ in range(15):
@@ -570,9 +613,14 @@ class Engine:
         if fuckdpi_running():
             self.say("FuckDPI активен; /stop перед перезапуском VPN")
             return
+        if not service_exists():
+            self.say("устанавливаю сервис...")
+            if not install_service(self.say):
+                self.say("не удалось установить сервис")
+                return
         rc = systemctl_sudo("restart")
         if rc != 0:
-            self.say(f"restart вернул код {rc}")
+            self.say(f"restart вернул код {rc}; /log")
             return
         for _ in range(15):
             if tun_exists():
@@ -1276,6 +1324,11 @@ class UI:
                 target=lambda: self.post(
                     f"внешний IP: {exit_ip() or 'не определён'}"),
                 daemon=True).start()
+        elif cmd == "/install-service":
+            if self._ensure_sudo():
+                threading.Thread(
+                    target=lambda: install_service(self.post),
+                    daemon=True).start()
         elif cmd == "/log":
             for l in self.engine.logs():
                 self.post("| " + l, 7)
@@ -1310,6 +1363,8 @@ def cli_main(args):
         print("\nБез аргументов: интерактивный интерфейс.")
     elif cmd == "key":
         eng.cmd_key(args[1] if len(args) > 1 else "")
+    elif cmd == "install-service":
+        install_service(print)
     elif cmd == "start":
         eng.start()
     elif cmd == "stop":
